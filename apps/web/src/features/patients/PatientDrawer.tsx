@@ -65,6 +65,7 @@ export function PatientDrawer({ state, onClose }: { state: DrawerState; onClose:
     mutationFn: (v: Values) => (editId ? api.updatePatient(editId, { ...v, version: opened?.version }) : api.createPatient(v)),
     onSuccess: (saved) => {
       void queryClient.invalidateQueries({ queryKey: ["patients"] });
+      void queryClient.invalidateQueries({ queryKey: ["chart", "summary"] }); // an open or cached chart shows the old name
       const unprotected = "conflictProtection" in saved && !saved.conflictProtection;
       notifications.show({
         color: unprotected ? "yellow" : "teal",

@@ -1,15 +1,32 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { ActionIcon, Alert, Anchor, Box, Button, Group, Loader, Skeleton, Stack, Table, Text, Title } from "@mantine/core";
 import { useDebouncedValue } from "@mantine/hooks";
-import { useInfiniteQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertCircle, Pencil, Plus } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useSearchParams } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import type { PatientListItem } from "@patient-app/shared";
 import { api, ApiError } from "../../lib/api.ts";
 import { PatientDrawer, type DrawerState } from "./PatientDrawer.tsx";
+import { summaryQuery } from "../chart/summaryQuery.ts";
 
 const ROW_HEIGHT = 49; // fixed so scroll positions stay exact
+const HOVER_MS = 150;
+
+function usePrefetchOnHover() {
+  const client = useQueryClient();
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const cancel = useCallback(() => clearTimeout(timer.current), []);
+  const start = useCallback(
+    (id: string) => {
+      clearTimeout(timer.current);
+      timer.current = setTimeout(() => void client.prefetchQuery({ ...summaryQuery(id), staleTime: 30_000 }), HOVER_MS);
+    },
+    [client],
+  );
+  useEffect(() => cancel, [cancel]);
+  return { start, cancel };
+}
 
 export function PatientsPage() {
   const [params] = useSearchParams();
@@ -126,6 +143,7 @@ function PatientTable({
   footer: ReactNode;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const warm = usePrefetchOnHover();
 
   // Only the rows near the viewport are in the page; the rest are replaced by spacers,
   // so a long feed stays fast and rows scrolled far past are dropped until you scroll back.
@@ -166,8 +184,17 @@ function PatientTable({
             return (
               <Table.Tr key={p.id} h={ROW_HEIGHT} data-index={vr.index} aria-rowindex={vr.index + 2}>
                 <Table.Td style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                  {/* The chart arrives in the next phase; until then the name opens the editor. */}
-                  <Anchor component="button" type="button" c="inherit" fw={500} onClick={() => onEdit(p.id)}>
+                  {/* Hovering or focusing for 150 ms warms the chart, so the click feels instant. */}
+                  <Anchor
+                    component={Link}
+                    to={`/patients/${encodeURIComponent(p.id)}`}
+                    c="inherit"
+                    fw={500}
+                    onMouseEnter={() => warm.start(p.id)}
+                    onFocus={() => warm.start(p.id)}
+                    onMouseLeave={warm.cancel}
+                    onBlur={warm.cancel}
+                  >
                     {p.displayName}
                   </Anchor>
                 </Table.Td>

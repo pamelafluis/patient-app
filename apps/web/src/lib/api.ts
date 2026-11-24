@@ -1,4 +1,4 @@
-import type { PatientDetail, PatientPage } from "@patient-app/shared";
+import type { ChartSummary, HistoryPage, HistorySection, PatientDetail, PatientPage, VitalHistory, VitalKind } from "@patient-app/shared";
 
 export class ApiError extends Error {
   constructor(message: string, readonly status: number, readonly body: any) {
@@ -27,6 +27,11 @@ export const api = {
     return call<PatientPage>(`/api/patients?${q}`, { signal });
   },
   getPatient: (id: string) => call<PatientDetail>(`/api/patients/${encodeURIComponent(id)}`),
+  getSummary: (id: string, signal?: AbortSignal) => call<ChartSummary>(`/api/patients/${encodeURIComponent(id)}/summary`, { signal }),
+  getVitals: (id: string, kind: VitalKind, cursor?: string, signal?: AbortSignal) =>
+    call<VitalHistory>(`/api/patients/${encodeURIComponent(id)}/vitals/${kind}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { signal }),
+  getHistory: (id: string, section: HistorySection, cursor?: string, signal?: AbortSignal) =>
+    call<HistoryPage>(`/api/patients/${encodeURIComponent(id)}/history/${section}${cursor ? `?cursor=${encodeURIComponent(cursor)}` : ""}`, { signal }),
   createPatient: (input: unknown) => call<PatientDetail>("/api/patients", { method: "POST", body: JSON.stringify(input) }),
   updatePatient: (id: string, input: unknown) =>
     call<PatientDetail & { conflictProtection: boolean }>(`/api/patients/${encodeURIComponent(id)}`, { method: "PUT", body: JSON.stringify(input) }),

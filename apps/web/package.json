@@ -8,6 +8,7 @@
     "build": "vite build"
   },
   "dependencies": {
+    "@mantine/charts": "^9.8.2",
     "@mantine/core": "^9.8.2",
     "@mantine/dates": "^9.8.2",
     "@mantine/form": "^9.8.2",
@@ -20,9 +21,11 @@
     "lucide-react": "^1.79.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-router-dom": "^7.18.7"
+    "react-router-dom": "^7.18.7",
+    "recharts": "^3.11.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.1",
     "@happy-dom/global-registrator": "^21.0.4",
     "@playwright/test": "^1.65.1",
     "@testing-library/dom": "^10.4.2",

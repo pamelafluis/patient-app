@@ -55,10 +55,29 @@ describe("PatientsPage", () => {
     await waitFor(() => expect(calls.some((c) => c.url.searchParams.get("name") === "ada")).toBe(true), { timeout: 2000 });
   });
 
-  test("clicking a name opens the edit drawer with that patient's values", async () => {
+  test("a name links to the chart, and hovering it warms the chart data", async () => {
+    const calls = mockApi({ "GET /api/patients": list([patient(1)]), "GET /api/patients/p1/summary": () => ({ body: {} }) });
+    renderApp(<PatientsPage />);
+    const link = await screen.findByRole("link", { name: "Family1, Given1" });
+    expect(link.getAttribute("href")).toBe("/patients/p1");
+    await userEvent.hover(link);
+    await waitFor(() => expect(calls.some((c) => c.url.pathname === "/api/patients/p1/summary")).toBe(true), { timeout: 1000 });
+  });
+
+  test("moving off a name before 150 ms does not fetch the chart", async () => {
+    const calls = mockApi({ "GET /api/patients": list([patient(1)]) });
+    renderApp(<PatientsPage />);
+    const link = await screen.findByRole("link", { name: "Family1, Given1" });
+    await userEvent.hover(link);
+    await userEvent.unhover(link);
+    await new Promise((r) => setTimeout(r, 300));
+    expect(calls.some((c) => c.url.pathname.endsWith("/summary"))).toBe(false);
+  });
+
+  test("the pencil opens the edit drawer with that patient's values", async () => {
     mockApi({ "GET /api/patients": list([patient(1)]), "GET /api/patients/p1": () => ({ body: detail() }) });
     renderApp(<PatientsPage />);
-    await userEvent.click(await screen.findByRole("button", { name: "Family1, Given1" }));
+    await userEvent.click(await screen.findByRole("button", { name: "Edit Family1, Given1" }));
     await waitFor(() => expect((screen.getByLabelText(/Family name/) as HTMLInputElement).value).toBe("Family1"));
     expect((screen.getByLabelText("Given name") as HTMLInputElement).value).toBe("Given1");
   });

@@ -1,8 +1,11 @@
-import { useEffect, useRef, useState } from "react";
-import { AppShell, Group, Text, TextInput, Anchor, Kbd } from "@mantine/core";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { AppShell, Group, Skeleton, Text, TextInput, Anchor, Kbd } from "@mantine/core";
 import { Heart, Search } from "lucide-react";
 import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
 import { PatientsPage } from "./features/patients/PatientsPage.tsx";
+
+// Route-level code splitting: the chart (and its tabs) load only when a chart is opened.
+const PatientChartPage = lazy(() => import("./features/chart/PatientChartPage.tsx").then((m) => ({ default: m.PatientChartPage })));
 
 function HeaderSearch() {
   const [params] = useSearchParams();
@@ -66,6 +69,14 @@ export function App() {
         <Routes>
           <Route path="/" element={<Navigate to="/patients" replace />} />
           <Route path="/patients" element={<PatientsPage />} />
+          <Route
+            path="/patients/:id"
+            element={
+              <Suspense fallback={<Skeleton height={32} width={320} aria-label="Loading patient" />}>
+                <PatientChartPage />
+              </Suspense>
+            }
+          />
           <Route path="*" element={<Navigate to="/patients" replace />} />
         </Routes>
       </AppShell.Main>

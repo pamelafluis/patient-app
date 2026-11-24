@@ -1,6 +1,6 @@
 # Manual test plan: Patients feature
 
-A checklist anyone can follow to confirm the app works as expected. It covers Phase 3 (patient list, search, create, edit, conflicts). Each step names the automated test that covers the same behavior, so you can see what is and isn't checked automatically. A dash means no automated test covers it. Add to this file as later phases add screens.
+A checklist anyone can follow to confirm the app works as expected. It covers Phase 3 (patient list, search, create, edit, conflicts) and Phase 4 (patient chart). Each step names the automated test that covers the same behavior, so you can see what is and isn't checked automatically. A dash means no automated test covers it. Add to this file as later phases add screens.
 
 Test names are given as `file: "test title"`. Component tests are in `apps/web/test/`, browser tests in `apps/web/e2e/`, and API tests in `apps/api/test/`.
 
@@ -27,7 +27,7 @@ Your `.env` needs `FHIR_BASE_URL` and `CURSOR_KEY`, plus `FHIR_BEARER_TOKEN` if 
 
 Open <http://localhost:5173/patients>.
 
-**Safe vs. writing:** sections 1 to 3 only read data and are safe on any server. Sections 4 and 5 **create and change patients on the FHIR server**. Run them only with the product owner's approval, and only with obviously fake patients (family name `ZZ-TEST` plus your initials) so they are easy to find and remove.
+**Safe vs. writing:** sections 1 to 3a only read data and are safe on any server. Sections 4 and 5 **create and change patients on the FHIR server**. Run them only with the product owner's approval, and only with obviously fake patients (family name `ZZ-TEST` plus your initials) so they are easy to find and remove.
 
 ## 1. Patient list
 
@@ -70,6 +70,30 @@ Open <http://localhost:5173/patients>.
 | A patient's pencil (or name) opens the drawer with their given name, family name, gender and date already filled in | list.test: "clicking a name opens the edit drawer with that patient's values" |
 | A patient whose date of birth is only a year (for example `1950`), if any exist, shows it in a plain text box rather than a calendar | drawer.test: "a partial existing date is a text field and saves unchanged" |
 | On a server that gives no record versions, the drawer says "Conflict protection is unavailable on this server." | drawer.test: "a server with no version shows that conflict protection is unavailable" (needs such a server to check by hand) |
+
+## 3a. Patient chart (read-only, safe)
+
+Click a patient's name in the list. Use a patient who has some observations, such as one from the SMART Health IT server.
+
+| Check | Automated test |
+| --- | --- |
+| Clicking a name opens `/patients/<id>` in one click; the pencil still opens the edit drawer | chart.e2e: "one click from the list shows the whole summary on a single screen"; list.test: "a name links to the chart…" |
+| Hovering a name for about 150 ms loads the chart in advance; moving away sooner does not | list.test: "a name links to the chart, and hovering it warms the chart data", "moving off a name before 150 ms…" |
+| The header shows name, gender, date of birth and age; five vital cards, active conditions and active medications fit on one screen without scrolling | chart.e2e: "one click…" ; chart.test: "shows the patient, all five vitals…" |
+| Blood pressure at or above 140/90 shows "Above goal", at or above 180/120 "Review now", each with an icon; below that, no flag | chart.test: "a normal blood pressure carries no flag…"; shared chart.test: "bpStatus boundaries" |
+| A reading over a year old shows its age and "old reading"; a missing vital says "No reading" | chart.test: "an old reading shows its age in words" |
+| Raw decimals from the server (193.5744…) show as whole numbers for blood pressure and one decimal otherwise | chart.test (API): "raw floats from the server are rounded…" |
+| Medications are labelled Prescribed or Reported and are never merged into one source | chart.test (API): "combines patient, latest vital of each kind, conditions and both medication sources" |
+| Stop the FHIR server's conditions only (or use a patient where one section fails): that section shows "Couldn't load…" while the rest still shows. An empty section says "None recorded" | chart.test: "none recorded and couldn't load look different"; chart.test (API): "one failing section reports itself…" |
+| If only prescriptions or only reported medications fail, the other list shows with a yellow notice saying which is missing | chart.test (API): "if only one medication source fails…" |
+| An unknown patient id shows "Patient not found" with no Retry button; a server error shows Retry | chart.e2e: "an unknown patient says so"; chart.test: "a failed load can be retried" |
+| Click a vital card: the Vitals trends tab opens with a line chart and a table of readings. "Load earlier readings" appends older ones | chart.e2e: "a vital opens its trend…"; chart.test: "Load earlier readings follows the cursor and appends" |
+| Full history loads nothing until opened; the Show menu switches between resolved conditions, past medications, allergies, encounters, procedures and immunizations, with "Load more" | chart.test: "loads only when the tab opens, then pages and switches sections" |
+| Tab, vital and section are in the address bar: refreshing keeps them; Back from a tab returns to the previous tab, then to the list | chart.e2e: "refreshing keeps the tab…", "a vital opens its trend…" |
+| Keyboard only: Tab to a name and press Enter to open the chart | chart.e2e: "keyboard only…" |
+| Light and dark mode pass an automated WCAG AA scan (summary and trends); no sideways scrolling at phone width | chart.e2e: "no accessibility violations in light/dark mode", "a phone-width window has no sideways scrolling" |
+| Editing the patient from the chart and saving updates the name shown in the chart | – |
+| Against a real server: `bun apps/api/test/live.chart.smoke.ts [baseUrl]` prints each patient's vitals, counts and timings (read-only) | – (manual) |
 
 ## 4. Saving (writes data; needs approval)
 

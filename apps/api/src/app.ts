@@ -2,7 +2,9 @@ import { Hono } from "hono";
 import { createPatientInputSchema, MAX_TZ_OFFSET_HOURS, todayIn, type PatientPage } from "@patient-app/shared";
 import type { ConfigProvider } from "./config.ts";
 import { ConfigError } from "./config.ts";
+import { describeFhirError } from "./errors.ts";
 import { FhirClient, FhirError } from "./fhir/client.ts";
+import { chartRoutes } from "./routes/chart.ts";
 import { CursorError, nextLinkOf, signCursor, verifyCursor } from "./fhir/paging.ts";
 import { applyEdit, buildNew, toDetail, toListItem } from "./mappers/patient.ts";
 
@@ -37,15 +39,7 @@ export function createApp(opts: AppOptions) {
     if (err instanceof CursorError) return c.json({ error: "cursor", message: "That page link is no longer valid." }, 400);
     if (err instanceof ConfigError) return c.json({ error: "config", message: "Server configuration is invalid." }, 500);
     if (err instanceof FhirError) {
-      const map = {
-        auth: [502, "FHIR credentials rejected"],
-        conflict: [409, "This record changed since you opened it"],
-        "not-found": [404, "Patient not found"],
-        throttled: [503, "The FHIR server is busy. Try again shortly."],
-        timeout: [504, "The FHIR server timed out"],
-        upstream: [502, "The FHIR server returned an error"],
-      } as const;
-      const [status, message] = map[err.kind];
+      const { status, message } = describeFhirError(err);
       return c.json({ error: err.kind, message }, status);
     }
     console.error("unexpected error", err instanceof Error ? err.name : "unknown");
@@ -111,6 +105,8 @@ export function createApp(opts: AppOptions) {
       throw e;
     }
   });
+
+  app.route("/", chartRoutes({ config: opts.config, fhir, today }));
 
   return app;
 }

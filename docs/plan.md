@@ -4,7 +4,7 @@
 
 Patient app is a practitioner-facing web app over a public FHIR server. Practitioners list, search, create and edit patients and view a clinical chart. It also includes one add-on with product potential. It must use Mantine, Bun and Lucide, and run on AWS for little or nothing.
 
-**Status:** plan approved 2026-11-24. Phases 1 and 2 done. Phase 3 (patients) built and verified with mocks and live read-only checks; the live write check is waiting on product owner approval.
+**Status:** plan approved 2026-11-24. Phases 1 and 2 done. Phase 3 (patients) built and verified with mocks and live read-only checks; the live write check is waiting on product owner approval. Phase 4 (chart) built and verified with mocks, a browser run and a live read-only check on SMART Health IT; it is uncommitted pending approval.
 
 **Decisions**
 
@@ -145,7 +145,7 @@ infra/                 CDK stack     docs/plan.md
 | BP | Panel `85354-9` or `55284-4`, components `8480-6` and `8462-4` |
 | Heart rate, temperature, respiration | `8867-4`, `8310-5`, `9279-1` |
 | SpO₂ | `59408-5` or `2708-6` |
-| Vitals query | One combined query, newest first; if a vital is missing and there is a next page, query that vital with `_count=1` |
+| Vitals query | One combined query, newest first; if a vital is missing and there is a next page, query that vital alone with `_count=5` (not 1, so a cancelled newest entry can't hide the real latest). Blood pressure is shown in whole mmHg and other values to one decimal, because some servers store raw floats |
 | Observations | Exclude `entered-in-error` and `cancelled`; convert units only from known UCUM codes, otherwise show as recorded |
 | Conditions | `active,recurrence,relapse`; exclude `refuted` and `entered-in-error` |
 | Medications | Active `MedicationRequest` (with `_include` of the drug) and active `MedicationStatement`, labelled Prescribed or Reported; never silently merged |
