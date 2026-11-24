@@ -1,0 +1,33 @@
+{
+  "name": "@patient-app/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@mantine/core": "^9.8.2",
+    "@mantine/dates": "^9.8.2",
+    "@mantine/form": "^9.8.2",
+    "@mantine/hooks": "^9.8.2",
+    "@mantine/notifications": "^9.8.2",
+    "@patient-app/shared": "workspace:*",
+    "@tanstack/react-query": "^5.108.4",
+    "@tanstack/react-virtual": "^3.14.28",
+    "dayjs": "^1.11.23",
+    "lucide-react": "^1.79.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "react-router-dom": "^7.18.7"
+  },
+  "devDependencies": {
+    "@happy-dom/global-registrator": "^21.0.4",
+    "@playwright/test": "^1.65.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.13",
+    "happy-dom": "^21.0.4"
+  }
+}
