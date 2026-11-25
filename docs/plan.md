@@ -4,7 +4,7 @@
 
 Patient app is a practitioner-facing web app over a public FHIR server. Practitioners list, search, create and edit patients and view a clinical chart. It also includes one add-on with product potential. It must use Mantine, Bun and Lucide, and run on AWS for little or nothing.
 
-**Status:** plan approved 2026-11-24. Phases 1 and 2 done. Phase 3 (patients) built and verified with mocks and live read-only checks; the live write check is waiting on product owner approval. Phase 4 (chart) built and verified with mocks, a browser run and a live read-only check on SMART Health IT; it is uncommitted pending approval.
+**Status:** plan approved 2026-11-24. Phases 1 and 2 done. Phase 3 (patients) built and verified with mocks and live read-only checks; the live write check is waiting on product owner approval. Phase 4 (chart) built and verified with mocks, a browser run and a live read-only check on SMART Health IT; it is uncommitted pending approval. Work order changed: Deploy (5) now comes before the BP worklist (8), with synthetic data (6) and testing on it (7) in between.
 
 **Decisions**
 
@@ -26,7 +26,7 @@ Patient app is a practitioner-facing web app over a public FHIR server. Practiti
 | `_elements` cut a 20-patient SMART page from 126 KB to 24 KB | Always use it on lists |
 | One HAPI patient had 3 MedicationStatements and 0 MedicationRequests | Query both types |
 | A 10-patient BP query on SMART took 4.0 s, covered 9 patients and had another page | Never label a patient "overdue" from a truncated result |
-| Newest BP in that SMART sample is from 2021; 2 of 9 HAPI and Firely patients had any BP | Show reading dates, optional demo "as of" date, optional seed data |
+| Newest BP in that SMART sample is from 2021; 2 of 9 HAPI and Firely patients had any BP | Show reading dates, optional demo "as of" date, seed data per [synthetic-data-plan.md](synthetic-data-plan.md) |
 
 ## 1. UI design
 
@@ -116,7 +116,7 @@ infra/                 CDK stack     docs/plan.md
 | FHIR base URL | `FHIR_BASE_URL` | `/patient-app/fhir/base-url` (String) |
 | Bearer token, optional | `FHIR_BEARER_TOKEN` | `/patient-app/fhir/token` (SecureString) |
 | Cursor signing key | `CURSOR_KEY` | `/patient-app/cursor-key` (SecureString) |
-| Demo date, optional | `DEMO_AS_OF` | Lambda environment variable |
+| Demo date, optional (added with the worklist) | `DEMO_AS_OF` | Lambda environment variable |
 
 - The deployer sets parameters with the AWS CLI, outside CDK, so the token never enters Git, the template or the JS bundle. `.env.example` has placeholders only.
 - Lambda caches values for 5 minutes. An upstream 401 forces one config reload and one retry; then the UI shows "FHIR credentials rejected". Changing servers or tokens needs no redeploy.
@@ -157,7 +157,7 @@ infra/                 CDK stack     docs/plan.md
 
 **Performance:** debounced search (300 ms, 2+ characters, stale requests cancelled), in-memory caching, hover prefetch, per-request timeouts, bounded concurrency, GET-only retries for 429/503, route-level code splitting. Target: list and summary under 1.5 s at p95 when the FHIR server answers within 1 s.
 
-**Security:** Cognito with self-signup off, PKCE, MFA optional; tokens in memory. JWT authorizer checks issuer, app client and scope. Local auth bypass refuses to start on Lambda. `Cache-Control: no-store` on API responses, CSP, no query strings, bodies or tokens in logs, 7-day log retention, throttling. IAM limited to the three parameters.
+**Security:** Cognito with self-signup off (an admin invites each user with `aws cognito-idp admin-create-user`; they get a temporary password by email and set their own at first login; the README documents invite and removal), PKCE, MFA optional; tokens in memory. JWT authorizer checks issuer, app client and scope. Local auth bypass refuses to start on Lambda. `Cache-Control: no-store` on API responses, CSP, no query strings, bodies or tokens in logs, 7-day log retention, throttling. IAM limited to the three parameters.
 
 **Synthetic data only.** Public FHIR servers are open to others. Real patient data would need an AWS BAA, a private FHIR server, audit logging and a compliance review.
 
@@ -191,7 +191,7 @@ infra/                 CDK stack     docs/plan.md
 | API Gateway HTTP API | About $1 per million calls |
 | S3 | Pennies |
 
-**Expected total: under $1 a month.** Confirm current API Gateway pricing before deploying. Caveat: a new account on the AWS *Free plan* closes after 6 months or when credits run out, unless upgraded. The stack includes a $5 budget alert, no NAT gateway, VPC or always-on servers.
+**Expected total: under $1 a month.** Confirm current API Gateway pricing before deploying. Caveat: a new account on the AWS *Free plan* closes after 6 months or when credits run out, unless upgraded; that clock starts at the first deploy, now earlier in the plan. The stack includes a $5 budget alert, no NAT gateway, VPC or always-on servers.
 
 ## 5. Work plan
 
@@ -199,8 +199,10 @@ infra/                 CDK stack     docs/plan.md
 2. **Foundation:** install Bun, workspaces, shared schemas, FHIR client, paging, config.
 3. **Patients:** list, search, create, edit, conflicts.
 4. **Chart:** summary, trends, full history.
-5. **BP worklist:** scan, classification, Task follow-ups.
-6. **Deploy:** CDK stack, Cognito, parameters, README with deploy and teardown steps. Any AWS deployment, write to a public FHIR server, or commit needs the product owner's approval first.
+5. **Deploy:** CDK stack, Cognito, parameters, README with deploy, teardown, and invite/remove-user steps. Deploying the basic app before the add-on proves the AWS pieces early. Any AWS deployment, write to a public FHIR server, or commit needs the product owner's approval first.
+6. **Synthetic data:** the target server already holds a Synthea population. Audit it against the mapping cases, then add and tag only the missing edge cases, as set out in [synthetic-data-plan.md](synthetic-data-plan.md).
+7. **Test on synthetic data:** run patients and chart, locally and deployed, against that dataset. Every mapping case has an expected result and an assertion; mismatches are fixed in the code, not the data.
+8. **BP worklist:** scan, classification, Task follow-ups. Adds `DEMO_AS_OF`, redeploys, and checks on the deployed stack that a scan fits API Gateway's 30 s limit. Its boundary cases are in the synthetic dataset, so it is tested there too.
 
 Each phase ends with a working, tested app.
 
@@ -211,7 +213,8 @@ Each phase ends with a working, tested app.
 - **Live read-only checks:** all three public servers, then the target server and token.
 - **Write check, with approval:** create a tagged synthetic patient, edit, force a conflict from two tabs, confirm untouched fields survive, then delete it.
 - **Browser (Playwright):** login, search to chart in two clicks, form errors, conflict, worklist to Task, keyboard-only use, accessibility scan, light and dark.
-- **Deployed:** deep-link refresh works, `/api` without login returns 401, S3 isn't public, bundle contains no token, changing the SSM URL takes effect without a redeploy.
+- **Synthetic dataset:** each case in the dataset's `expected.json` (see [synthetic-data-plan.md](synthetic-data-plan.md)) is asserted against API output (`bun test` integration suite) and key UI states (Playwright), locally and then deployed.
+- **Deployed:** deep-link refresh works, `/api` without login returns 401, S3 isn't public, bundle contains no token, changing the SSM URL takes effect without a redeploy. Run after Deploy, and again after the worklist ships.
 
 **Open inputs, needed before phase 3:** the FHIR server URL, whether writes are allowed, and how the token is issued and expires. Keep the token in `.env` only; never commit it or paste it into chat or issues.
 
