@@ -33,7 +33,11 @@ export function createApp(opts: AppOptions) {
   app.onError((err, c) => {
     // Messages are chosen here; upstream headers and tokens are never echoed.
     if (err instanceof CursorError) return c.json({ error: "cursor", message: "That page link is no longer valid." }, 400);
-    if (err instanceof ConfigError) return c.json({ error: "config", message: "Server configuration is invalid." }, 500);
+    if (err instanceof ConfigError) {
+      // ConfigError messages are fixed text from our code, never setting values, so they are safe to log.
+      console.error("config error:", err.message);
+      return c.json({ error: "config", message: "Server configuration is invalid." }, 500);
+    }
     if (err instanceof FhirError) {
       const { status, message } = describeFhirError(err);
       return c.json({ error: err.kind, message }, status);
