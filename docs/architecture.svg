@@ -1,0 +1,328 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1290 1665" width="1290" height="1665" font-family="Segoe UI, Helvetica, Arial, sans-serif" role="img" aria-labelledby="t d">
+  <title id="t">Patient app AWS architecture and security architecture</title>
+  <desc id="d">Browser to CloudFront, which serves a private S3 bucket and forwards /api to an API Gateway HTTP API with a Cognito JWT authorizer. The API invokes a Lambda that reads SSM parameters and calls the FHIR server. Cognito provides login. A budget alerts by email, and CloudWatch alarms email through SNS. Lambda and API access logs go to CloudWatch Logs. A second diagram below shows the security architecture: trust zones from the browser through CloudFront, API Gateway and Lambda to the external FHIR server, the controls in each, supporting identity, secrets, data protection and logging controls, and the controls not yet in place.</desc>
+  <defs>
+    <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#334155"/></marker>
+    <marker id="arrd" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="#64748b"/></marker>
+  </defs>
+  <rect width="1290" height="1665" fill="#ffffff"/>
+  <text x="40" y="30" font-size="18" font-weight="700" fill="#0f172a">Patient app on AWS: everything created by infra/lib/stack.ts (one CloudFormation stack, "PatientApp")</text>
+
+  <!-- AWS boundary -->
+  <rect x="260" y="50" width="830" height="740" rx="12" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="276" y="72" font-size="13" font-weight="600" fill="#475569">AWS account · one region</text>
+
+  <!-- Browser -->
+  <rect x="40" y="330" width="160" height="100" rx="8" fill="#ffffff" stroke="#334155" stroke-width="1.5"/>
+  <text x="120" y="362" font-size="14" font-weight="700" text-anchor="middle" fill="#0f172a">Browser</text>
+  <text x="120" y="384" font-size="12" text-anchor="middle" fill="#334155">React single-page app</text>
+  <text x="120" y="402" font-size="12" text-anchor="middle" fill="#334155">tokens kept in memory</text>
+
+  <!-- Budget -->
+  <rect x="290" y="82" width="240" height="64" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="410" y="104" font-size="13" font-weight="700" text-anchor="middle" fill="#0f172a">Budget · $5 a month</text>
+  <text x="410" y="122" font-size="11.5" text-anchor="middle" fill="#334155">emails BUDGET_EMAIL at 80% actual</text>
+  <text x="410" y="137" font-size="11.5" text-anchor="middle" fill="#334155">and 100% forecast</text>
+
+  <!-- Alarms -->
+  <rect x="620" y="82" width="200" height="82" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="720" y="104" font-size="13" font-weight="700" text-anchor="middle" fill="#0f172a">CloudWatch alarms (3)</text>
+  <text x="720" y="122" font-size="11.5" text-anchor="middle" fill="#334155">Lambda errors</text>
+  <text x="720" y="137" font-size="11.5" text-anchor="middle" fill="#334155">Lambda throttles</text>
+  <text x="720" y="152" font-size="11.5" text-anchor="middle" fill="#334155">API 5xx</text>
+  <rect x="900" y="82" width="160" height="82" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="980" y="108" font-size="13" font-weight="700" text-anchor="middle" fill="#0f172a">SNS alarm topic</text>
+  <text x="980" y="128" font-size="11.5" text-anchor="middle" fill="#334155">emails BUDGET_EMAIL</text>
+  <text x="980" y="145" font-size="11.5" text-anchor="middle" fill="#334155">after confirmation</text>
+  <path d="M820 123 H900" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arrd)"/>
+
+  <!-- CloudFront -->
+  <rect x="290" y="200" width="240" height="250" rx="8" fill="#e0f2fe" stroke="#0369a1" stroke-width="1.5"/>
+  <text x="410" y="224" font-size="14" font-weight="700" text-anchor="middle" fill="#0c4a6e">CloudFront distribution</text>
+  <text x="410" y="243" font-size="11.5" text-anchor="middle" fill="#0c4a6e">HTTPS only · security headers (CSP, HSTS)</text>
+  <rect x="302" y="256" width="216" height="46" rx="5" fill="#ffffff" stroke="#7dd3fc"/>
+  <text x="312" y="274" font-size="12" font-weight="600" fill="#0f172a">/*  (default)</text>
+  <text x="312" y="291" font-size="11" fill="#334155">SpaRewrite function → index.html</text>
+  <rect x="302" y="310" width="216" height="46" rx="5" fill="#ffffff" stroke="#7dd3fc"/>
+  <text x="312" y="328" font-size="12" font-weight="600" fill="#0f172a">/config.json</text>
+  <text x="312" y="345" font-size="11" fill="#334155">never cached</text>
+  <rect x="302" y="364" width="216" height="72" rx="5" fill="#ffffff" stroke="#7dd3fc"/>
+  <text x="312" y="382" font-size="12" font-weight="600" fill="#0f172a">/api/*</text>
+  <text x="312" y="399" font-size="11" fill="#334155">never cached · all methods</text>
+  <text x="312" y="414" font-size="11" fill="#334155">forwards the Authorization header</text>
+  <text x="312" y="429" font-size="11" fill="#334155">HTTPS to the API origin</text>
+
+  <!-- S3 -->
+  <rect x="620" y="240" width="200" height="100" rx="8" fill="#dcfce7" stroke="#15803d" stroke-width="1.5"/>
+  <text x="720" y="268" font-size="14" font-weight="700" text-anchor="middle" fill="#14532d">S3 site bucket</text>
+  <text x="720" y="288" font-size="11.5" text-anchor="middle" fill="#14532d">private · public access blocked</text>
+  <text x="720" y="304" font-size="11.5" text-anchor="middle" fill="#14532d">TLS only · encrypted</text>
+  <text x="720" y="320" font-size="11.5" text-anchor="middle" fill="#14532d">read via origin access control</text>
+
+  <!-- BucketDeployment -->
+  <rect x="900" y="240" width="160" height="100" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="980" y="266" font-size="13" font-weight="700" text-anchor="middle" fill="#0f172a">BucketDeployment</text>
+  <text x="980" y="285" font-size="11.5" text-anchor="middle" fill="#334155">deploy-time only</text>
+  <text x="980" y="302" font-size="11.5" text-anchor="middle" fill="#334155">uploads apps/web/dist and</text>
+  <text x="980" y="317" font-size="11.5" text-anchor="middle" fill="#334155">config.json (Cognito IDs)</text>
+
+  <!-- API Gateway -->
+  <rect x="620" y="370" width="200" height="120" rx="8" fill="#ede9fe" stroke="#6d28d9" stroke-width="1.5"/>
+  <text x="720" y="396" font-size="14" font-weight="700" text-anchor="middle" fill="#4c1d95">API Gateway HTTP API</text>
+  <text x="720" y="416" font-size="11.5" text-anchor="middle" fill="#4c1d95">route ANY /api/{proxy+}</text>
+  <text x="720" y="433" font-size="11.5" text-anchor="middle" fill="#4c1d95">JWT authorizer · scope openid</text>
+  <text x="720" y="450" font-size="11.5" text-anchor="middle" fill="#4c1d95">throttle 20 req/s, burst 40</text>
+  <text x="720" y="467" font-size="11.5" text-anchor="middle" fill="#4c1d95">no CORS (same origin)</text>
+
+  <!-- Lambda -->
+  <rect x="900" y="370" width="160" height="120" rx="8" fill="#fef3c7" stroke="#b45309" stroke-width="1.5"/>
+  <text x="980" y="396" font-size="14" font-weight="700" text-anchor="middle" fill="#78350f">Lambda</text>
+  <text x="980" y="416" font-size="11.5" text-anchor="middle" fill="#78350f">Hono API (apps/api)</text>
+  <text x="980" y="433" font-size="11.5" text-anchor="middle" fill="#78350f">nodejs24.x · arm64</text>
+  <text x="980" y="450" font-size="11.5" text-anchor="middle" fill="#78350f">512 MB · 25 s timeout</text>
+  <text x="980" y="467" font-size="11.5" text-anchor="middle" fill="#78350f">IAM: ssm:GetParameters only</text>
+
+  <!-- Cognito -->
+  <rect x="290" y="560" width="540" height="200" rx="8" fill="#fce7f3" stroke="#be185d" stroke-width="1.5"/>
+  <text x="306" y="584" font-size="14" font-weight="700" fill="#831843">Cognito</text>
+  <rect x="304" y="604" width="160" height="136" rx="6" fill="#ffffff" stroke="#f9a8d4"/>
+  <text x="384" y="628" font-size="12.5" font-weight="700" text-anchor="middle" fill="#0f172a">User pool</text>
+  <text x="384" y="648" font-size="11" text-anchor="middle" fill="#334155">self sign-up off</text>
+  <text x="384" y="664" font-size="11" text-anchor="middle" fill="#334155">admin invites each user</text>
+  <text x="384" y="680" font-size="11" text-anchor="middle" fill="#334155">password min 12 chars</text>
+  <text x="384" y="696" font-size="11" text-anchor="middle" fill="#334155">optional authenticator MFA</text>
+  <text x="384" y="712" font-size="11" text-anchor="middle" fill="#334155">email recovery</text>
+  <rect x="480" y="604" width="160" height="136" rx="6" fill="#ffffff" stroke="#f9a8d4"/>
+  <text x="560" y="628" font-size="12.5" font-weight="700" text-anchor="middle" fill="#0f172a">Hosted login domain</text>
+  <text x="560" y="648" font-size="11" text-anchor="middle" fill="#334155">patient-app-&lt;account&gt;</text>
+  <text x="560" y="664" font-size="11" text-anchor="middle" fill="#334155">.auth.&lt;region&gt;</text>
+  <text x="560" y="680" font-size="11" text-anchor="middle" fill="#334155">.amazoncognito.com</text>
+  <text x="560" y="702" font-size="11" text-anchor="middle" fill="#334155">sign-in page and</text>
+  <text x="560" y="717" font-size="11" text-anchor="middle" fill="#334155">token endpoint</text>
+  <rect x="656" y="604" width="160" height="136" rx="6" fill="#ffffff" stroke="#f9a8d4"/>
+  <text x="736" y="628" font-size="12.5" font-weight="700" text-anchor="middle" fill="#0f172a">Web app client</text>
+  <text x="736" y="648" font-size="11" text-anchor="middle" fill="#334155">public client, no secret</text>
+  <text x="736" y="664" font-size="11" text-anchor="middle" fill="#334155">authorization code + PKCE</text>
+  <text x="736" y="680" font-size="11" text-anchor="middle" fill="#334155">callback: the CloudFront URL</text>
+  <text x="736" y="696" font-size="11" text-anchor="middle" fill="#334155">access token 1 h</text>
+  <text x="736" y="712" font-size="11" text-anchor="middle" fill="#334155">refresh token 12 h</text>
+
+  <!-- SSM -->
+  <rect x="880" y="540" width="130" height="86" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="945" y="564" font-size="13" font-weight="700" text-anchor="middle" fill="#0f172a">SSM Parameters</text>
+  <text x="945" y="582" font-size="10.5" text-anchor="middle" fill="#334155">/patient-app/fhir/base-url</text>
+  <text x="945" y="597" font-size="10.5" text-anchor="middle" fill="#334155">/patient-app/fhir/token</text>
+  <text x="945" y="612" font-size="10.5" text-anchor="middle" fill="#334155">/patient-app/cursor-key</text>
+
+  <!-- CloudWatch -->
+  <rect x="880" y="676" width="180" height="86" rx="8" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
+  <text x="970" y="702" font-size="13" font-weight="700" text-anchor="middle" fill="#0f172a">CloudWatch log groups</text>
+  <text x="970" y="722" font-size="11.5" text-anchor="middle" fill="#334155">Lambda · API access</text>
+  <text x="970" y="740" font-size="11.5" text-anchor="middle" fill="#334155">30-day retention</text>
+
+  <!-- External: FHIR -->
+  <rect x="1130" y="370" width="140" height="120" rx="8" fill="#ffffff" stroke="#334155" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="1200" y="404" font-size="14" font-weight="700" text-anchor="middle" fill="#0f172a">FHIR R4 server</text>
+  <text x="1200" y="426" font-size="11.5" text-anchor="middle" fill="#334155">outside AWS</text>
+  <text x="1200" y="443" font-size="11.5" text-anchor="middle" fill="#334155">synthetic data only</text>
+  <text x="1200" y="460" font-size="11.5" text-anchor="middle" fill="#334155">URL set in SSM</text>
+
+  <!-- External: deployer -->
+  <rect x="1130" y="540" width="140" height="110" rx="8" fill="#ffffff" stroke="#334155" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="1200" y="566" font-size="14" font-weight="700" text-anchor="middle" fill="#0f172a">Deployer</text>
+  <text x="1200" y="588" font-size="11" text-anchor="middle" fill="#334155">cdk deploy creates the</text>
+  <text x="1200" y="603" font-size="11" text-anchor="middle" fill="#334155">stack; aws ssm</text>
+  <text x="1200" y="618" font-size="11" text-anchor="middle" fill="#334155">put-parameter sets the</text>
+  <text x="1200" y="633" font-size="11" text-anchor="middle" fill="#334155">three values (not in CDK)</text>
+
+  <!-- Arrows: request path -->
+  <path d="M200 380 H290" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="245" y="368" font-size="11" font-weight="700" text-anchor="middle" fill="#0f172a">1</text>
+  <path d="M530 290 H620" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="575" y="278" font-size="11" text-anchor="middle" fill="#334155">/* and</text>
+  <text x="575" y="320" font-size="11" text-anchor="middle" fill="#334155">/config.json</text>
+  <path d="M530 400 H620" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="575" y="390" font-size="11" text-anchor="middle" fill="#334155">/api/*</text>
+  <path d="M820 430 H900" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="860" y="420" font-size="11" font-weight="700" text-anchor="middle" fill="#0f172a">3</text>
+  <path d="M1060 430 H1130" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="1074" y="420" font-size="11" font-weight="700" text-anchor="middle" fill="#0f172a">5</text>
+  <path d="M930 490 V540" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="940" y="516" font-size="11" fill="#334155">reads config,</text>
+  <text x="940" y="531" font-size="11" fill="#334155">cached 5 min</text>
+  <path d="M1030 490 V676" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrd)"/>
+  <text x="1040" y="660" font-size="11" fill="#334155">logs</text>
+
+  <path d="M820 475 H850 V710 H880" stroke="#64748b" stroke-width="1.5" fill="none" marker-end="url(#arrd)"/>
+
+  <!-- Login path -->
+  <path d="M120 430 V660 H290" stroke="#be185d" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="130" y="520" font-size="11" font-weight="700" fill="#831843">2  sign in</text>
+  <text x="130" y="536" font-size="11" fill="#831843">code + PKCE,</text>
+  <text x="130" y="551" font-size="11" fill="#831843">then token</text>
+  <text x="130" y="566" font-size="11" fill="#831843">exchange</text>
+
+  <!-- Authorizer check -->
+  <path d="M720 490 V560" stroke="#6d28d9" stroke-width="1.8" stroke-dasharray="5 4" fill="none" marker-end="url(#arr)"/>
+  <text x="730" y="520" font-size="11" fill="#4c1d95">4  authorizer checks</text>
+  <text x="730" y="535" font-size="11" fill="#4c1d95">issuer, client, scope</text>
+
+  <!-- Deploy-time arrows -->
+  <path d="M900 290 H820" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arrd)"/>
+  <path d="M980 240 V190 H410 V200" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arrd)"/>
+  <text x="700" y="182" font-size="11" text-anchor="middle" fill="#334155">deploy time: invalidates the CloudFront cache (/*)</text>
+  <text x="860" y="282" font-size="11" text-anchor="middle" fill="#334155">uploads</text>
+  <path d="M1130 590 H1010" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" fill="none" marker-end="url(#arrd)"/>
+
+  <!-- Legend -->
+  <text x="40" y="730" font-size="12" font-weight="700" fill="#0f172a">Key</text>
+  <path d="M40 748 H80" stroke="#334155" stroke-width="1.8" marker-end="url(#arr)"/>
+  <text x="90" y="752" font-size="11" fill="#334155">request at run time</text>
+  <path d="M40 770 H80" stroke="#64748b" stroke-width="1.5" stroke-dasharray="5 4" marker-end="url(#arrd)"/>
+  <text x="90" y="774" font-size="11" fill="#334155">deploy time or logging</text>
+
+  <!-- ============ Security architecture ============ -->
+  <path d="M20 820 H1270" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="40" y="852" font-size="18" font-weight="700" fill="#0f172a">Security architecture: trust zones and controls</text>
+  <text x="40" y="872" font-size="12" fill="#334155">As defined in the code in this repository; deployed resources were not inspected. A request crosses the zones from left to right.</text>
+  <rect x="20" y="890" width="200" height="420" rx="10" fill="#f8fafc" stroke="#64748b" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="120" y="912" font-size="12.5" font-weight="700" text-anchor="middle" fill="#0f172a">Untrusted · user device</text>
+  <rect x="28" y="924" width="184" height="90" rx="6" fill="#ffffff" stroke="#64748b" stroke-width="1"/>
+  <text x="38" y="943" font-size="12" font-weight="700" fill="#0f172a">Browser (React app)</text>
+  <text x="38" y="960" font-size="11" fill="#334155">access and ID tokens held</text>
+  <text x="38" y="975" font-size="11" fill="#334155">in memory only</text>
+  <text x="38" y="990" font-size="11" fill="#334155">sign-in state and PKCE</text>
+  <text x="38" y="1005" font-size="11" fill="#334155">verifier in sessionStorage</text>
+  <rect x="28" y="1024" width="184" height="105" rx="6" fill="#ffffff" stroke="#64748b" stroke-width="1"/>
+  <text x="38" y="1043" font-size="12" font-weight="700" fill="#0f172a">Browser-enforced policy</text>
+  <text x="38" y="1060" font-size="11" fill="#334155">CSP: scripts from self only;</text>
+  <text x="38" y="1075" font-size="11" fill="#334155">connections to self and</text>
+  <text x="38" y="1090" font-size="11" fill="#334155">Cognito only</text>
+  <text x="38" y="1105" font-size="11" fill="#334155">frame-ancestors 'none'</text>
+  <text x="38" y="1120" font-size="11" fill="#334155">HSTS, nosniff, no-referrer</text>
+  <rect x="260" y="890" width="230" height="420" rx="10" fill="#f0f9ff" stroke="#0369a1" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="375" y="912" font-size="12.5" font-weight="700" text-anchor="middle" fill="#0f172a">Public edge · CloudFront</text>
+  <rect x="268" y="924" width="214" height="75" rx="6" fill="#ffffff" stroke="#0369a1" stroke-width="1"/>
+  <text x="278" y="943" font-size="12" font-weight="700" fill="#0f172a">Transport</text>
+  <text x="278" y="960" font-size="11" fill="#334155">/api/*: HTTPS only</text>
+  <text x="278" y="975" font-size="11" fill="#334155">other paths: redirect to HTTPS</text>
+  <text x="278" y="990" font-size="11" fill="#334155">HTTPS to the API origin</text>
+  <rect x="268" y="1009" width="214" height="75" rx="6" fill="#ffffff" stroke="#0369a1" stroke-width="1"/>
+  <text x="278" y="1028" font-size="12" font-weight="700" fill="#0f172a">Response headers</text>
+  <text x="278" y="1045" font-size="11" fill="#334155">adds CSP, HSTS, nosniff,</text>
+  <text x="278" y="1060" font-size="11" fill="#334155">X-Frame-Options DENY,</text>
+  <text x="278" y="1075" font-size="11" fill="#334155">Referrer-Policy no-referrer</text>
+  <rect x="268" y="1094" width="214" height="75" rx="6" fill="#ffffff" stroke="#0369a1" stroke-width="1"/>
+  <text x="278" y="1113" font-size="12" font-weight="700" fill="#0f172a">Static origin</text>
+  <text x="278" y="1130" font-size="11" fill="#334155">S3 is private: public access</text>
+  <text x="278" y="1145" font-size="11" fill="#334155">blocked, read only through</text>
+  <text x="278" y="1160" font-size="11" fill="#334155">origin access control</text>
+  <rect x="268" y="1179" width="214" height="60" rx="6" fill="#ffffff" stroke="#0369a1" stroke-width="1"/>
+  <text x="278" y="1198" font-size="12" font-weight="700" fill="#0f172a">Caching</text>
+  <text x="278" y="1215" font-size="11" fill="#334155">/api/* and /config.json</text>
+  <text x="278" y="1230" font-size="11" fill="#334155">are never cached</text>
+  <rect x="530" y="890" width="230" height="420" rx="10" fill="#f5f3ff" stroke="#6d28d9" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="645" y="912" font-size="12.5" font-weight="700" text-anchor="middle" fill="#0f172a">Authentication · API Gateway</text>
+  <rect x="538" y="924" width="214" height="105" rx="6" fill="#ffffff" stroke="#6d28d9" stroke-width="1"/>
+  <text x="548" y="943" font-size="12" font-weight="700" fill="#0f172a">JWT authorizer</text>
+  <text x="548" y="960" font-size="11" fill="#334155">every /api/{proxy+} route</text>
+  <text x="548" y="975" font-size="11" fill="#334155">validates signature, expiry,</text>
+  <text x="548" y="990" font-size="11" fill="#334155">issuer and app client</text>
+  <text x="548" y="1005" font-size="11" fill="#334155">requires scope openid</text>
+  <text x="548" y="1020" font-size="11" fill="#334155">rejects before Lambda runs</text>
+  <rect x="538" y="1039" width="214" height="60" rx="6" fill="#ffffff" stroke="#6d28d9" stroke-width="1"/>
+  <text x="548" y="1058" font-size="12" font-weight="700" fill="#0f172a">Abuse limit</text>
+  <text x="548" y="1075" font-size="11" fill="#334155">20 req/s, burst 40,</text>
+  <text x="548" y="1090" font-size="11" fill="#334155">shared by all users</text>
+  <rect x="538" y="1109" width="214" height="75" rx="6" fill="#ffffff" stroke="#6d28d9" stroke-width="1"/>
+  <text x="548" y="1128" font-size="12" font-weight="700" fill="#0f172a">Access log</text>
+  <text x="548" y="1145" font-size="11" fill="#334155">user sub, source IP, method,</text>
+  <text x="548" y="1160" font-size="11" fill="#334155">path, status; no query string,</text>
+  <text x="548" y="1175" font-size="11" fill="#334155">headers or body</text>
+  <rect x="800" y="890" width="230" height="420" rx="10" fill="#fffbeb" stroke="#b45309" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="915" y="912" font-size="12.5" font-weight="700" text-anchor="middle" fill="#0f172a">Application · Lambda</text>
+  <rect x="808" y="924" width="214" height="90" rx="6" fill="#ffffff" stroke="#b45309" stroke-width="1"/>
+  <text x="818" y="943" font-size="12" font-weight="700" fill="#0f172a">Input and paging</text>
+  <text x="818" y="960" font-size="11" fill="#334155">create and edit input is</text>
+  <text x="818" y="975" font-size="11" fill="#334155">schema-validated</text>
+  <text x="818" y="990" font-size="11" fill="#334155">paging cursors: HMAC-SHA256</text>
+  <text x="818" y="1005" font-size="11" fill="#334155">signed, same FHIR server only</text>
+  <rect x="808" y="1024" width="214" height="90" rx="6" fill="#ffffff" stroke="#b45309" stroke-width="1"/>
+  <text x="818" y="1043" font-size="12" font-weight="700" fill="#0f172a">Outbound calls</text>
+  <text x="818" y="1060" font-size="11" fill="#334155">https only to the FHIR server</text>
+  <text x="818" y="1075" font-size="11" fill="#334155">redirects are not followed</text>
+  <text x="818" y="1090" font-size="11" fill="#334155">10 s timeout per attempt</text>
+  <text x="818" y="1105" font-size="11" fill="#334155">If-Match guards stale edits</text>
+  <rect x="808" y="1124" width="214" height="75" rx="6" fill="#ffffff" stroke="#b45309" stroke-width="1"/>
+  <text x="818" y="1143" font-size="12" font-weight="700" fill="#0f172a">Output</text>
+  <text x="818" y="1160" font-size="11" fill="#334155">own error messages; upstream</text>
+  <text x="818" y="1175" font-size="11" fill="#334155">text and tokens not echoed</text>
+  <text x="818" y="1190" font-size="11" fill="#334155">Cache-Control: no-store</text>
+  <rect x="1070" y="890" width="200" height="420" rx="10" fill="#ffffff" stroke="#334155" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="1170" y="912" font-size="12.5" font-weight="700" text-anchor="middle" fill="#0f172a">External · outside AWS</text>
+  <rect x="1078" y="924" width="184" height="105" rx="6" fill="#ffffff" stroke="#334155" stroke-width="1"/>
+  <text x="1088" y="943" font-size="12" font-weight="700" fill="#0f172a">FHIR R4 server</text>
+  <text x="1088" y="960" font-size="11" fill="#334155">synthetic data only</text>
+  <text x="1088" y="975" font-size="11" fill="#334155">bearer token sent if one</text>
+  <text x="1088" y="990" font-size="11" fill="#334155">is configured</text>
+  <text x="1088" y="1005" font-size="11" fill="#334155">its own access control is</text>
+  <text x="1088" y="1020" font-size="11" fill="#334155">outside this stack</text>
+  <path d="M220 960 H260" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="240" y="950" font-size="10.5" font-weight="700" text-anchor="middle" fill="#0f172a">HTTPS</text>
+  <path d="M490 960 H530" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="510" y="950" font-size="10.5" font-weight="700" text-anchor="middle" fill="#0f172a">JWT</text>
+  <path d="M760 960 H800" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="780" y="950" font-size="10.5" font-weight="700" text-anchor="middle" fill="#0f172a">invoke</text>
+  <path d="M1030 960 H1070" stroke="#334155" stroke-width="1.8" fill="none" marker-end="url(#arr)"/>
+  <text x="1050" y="950" font-size="10.5" font-weight="700" text-anchor="middle" fill="#0f172a">HTTPS</text>
+  <text x="40" y="1340" font-size="13" font-weight="700" fill="#0f172a">Supporting controls</text>
+  <rect x="20" y="1352" width="296" height="148" rx="8" fill="#fdf2f8" stroke="#be185d" stroke-width="1.5"/>
+  <text x="32" y="1373" font-size="12.5" font-weight="700" fill="#0f172a">Identity · Cognito</text>
+  <text x="32" y="1392" font-size="11" fill="#334155">no self sign-up; an admin invites users</text>
+  <text x="32" y="1407" font-size="11" fill="#334155">password: 12+ chars, upper, lower, digit</text>
+  <text x="32" y="1422" font-size="11" fill="#334155">authenticator-app MFA, optional</text>
+  <text x="32" y="1437" font-size="11" fill="#334155">public client: authorization code + PKCE</text>
+  <text x="32" y="1452" font-size="11" fill="#334155">access and ID tokens 1 h, refresh 12 h</text>
+  <text x="32" y="1467" font-size="11" fill="#334155">token revocation on; user-existence</text>
+  <text x="32" y="1482" font-size="11" fill="#334155">errors hidden; email-only recovery</text>
+  <rect x="338" y="1352" width="296" height="148" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text x="350" y="1373" font-size="12.5" font-weight="700" fill="#0f172a">Secrets and least privilege</text>
+  <text x="350" y="1392" font-size="11" fill="#334155">SSM Parameter Store, set by CLI:</text>
+  <text x="350" y="1407" font-size="11" fill="#334155">FHIR token and cursor key as SecureString,</text>
+  <text x="350" y="1422" font-size="11" fill="#334155">base URL as String (per README steps)</text>
+  <text x="350" y="1437" font-size="11" fill="#334155">no secrets in Git, template or JS bundle</text>
+  <text x="350" y="1452" font-size="11" fill="#334155">Lambda may call ssm:GetParameters on</text>
+  <text x="350" y="1467" font-size="11" fill="#334155">those three parameters only (plus the</text>
+  <text x="350" y="1482" font-size="11" fill="#334155">standard basic logging role)</text>
+  <rect x="656" y="1352" width="296" height="148" rx="8" fill="#f0fdf4" stroke="#15803d" stroke-width="1.5"/>
+  <text x="668" y="1373" font-size="12.5" font-weight="700" fill="#0f172a">Data protection</text>
+  <text x="668" y="1392" font-size="11" fill="#334155">no patient database in this AWS stack;</text>
+  <text x="668" y="1407" font-size="11" fill="#334155">records stay on the FHIR server</text>
+  <text x="668" y="1422" font-size="11" fill="#334155">S3 site bucket: SSE-S3, TLS only</text>
+  <text x="668" y="1437" font-size="11" fill="#334155">SNS alarm topic: TLS only,</text>
+  <text x="668" y="1452" font-size="11" fill="#334155">not encrypted at rest</text>
+  <text x="668" y="1467" font-size="11" fill="#334155">(alarm messages hold no patient data)</text>
+  <text x="668" y="1482" font-size="11" fill="#334155">user pool retained if stack is deleted</text>
+  <rect x="974" y="1352" width="296" height="148" rx="8" fill="#f8fafc" stroke="#64748b" stroke-width="1.5"/>
+  <text x="986" y="1373" font-size="12.5" font-weight="700" fill="#0f172a">Logging and detection</text>
+  <text x="986" y="1392" font-size="11" fill="#334155">API access logs and Lambda logs,</text>
+  <text x="986" y="1407" font-size="11" fill="#334155">30-day retention</text>
+  <text x="986" y="1422" font-size="11" fill="#334155">access-log paths include patient IDs</text>
+  <text x="986" y="1437" font-size="11" fill="#334155">alarms: Lambda errors, throttles,</text>
+  <text x="986" y="1452" font-size="11" fill="#334155">API 5xx, sent by email through SNS</text>
+  <text x="986" y="1467" font-size="11" fill="#334155">$5 monthly budget alert</text>
+  <rect x="20" y="1520" width="1250" height="126" rx="10" fill="#fef2f2" stroke="#b91c1c" stroke-width="1.5" stroke-dasharray="7 5"/>
+  <text x="36" y="1544" font-size="13" font-weight="700" fill="#991b1b">Not in place (see docs/well-architected-review.md). These gaps matter most if real patient data comes into scope.</text>
+  <text x="36" y="1570" font-size="11.5" fill="#7f1d1d">• Any signed-in user can read and write all patients</text>
+  <text x="36" y="1589" font-size="11.5" fill="#7f1d1d">• MFA is optional; no Cognito threat protection</text>
+  <text x="36" y="1608" font-size="11.5" fill="#7f1d1d">• No WAF; execute-api URL bypasses CloudFront (JWT still checked)</text>
+  <text x="36" y="1627" font-size="11.5" fill="#7f1d1d">• One throttle shared by all users</text>
+  <text x="466" y="1570" font-size="11.5" fill="#7f1d1d">• No CloudFront or S3 access logs</text>
+  <text x="466" y="1589" font-size="11.5" fill="#7f1d1d">• No Permissions-Policy header</text>
+  <text x="466" y="1608" font-size="11.5" fill="#7f1d1d">• No documented cursor-key rotation</text>
+  <text x="466" y="1627" font-size="11.5" fill="#7f1d1d">• No tracing or structured application logging</text>
+  <text x="866" y="1570" font-size="11.5" fill="#7f1d1d">• Account CloudTrail and GuardDuty: not checked</text>
+  <text x="866" y="1589" font-size="11.5" fill="#7f1d1d">• Real data also needs an AWS BAA, a private</text>
+  <text x="875" y="1608" font-size="11.5" fill="#7f1d1d">FHIR server, audit logging and a compliance</text>
+  <text x="875" y="1627" font-size="11.5" fill="#7f1d1d">review (README)</text>
+</svg>

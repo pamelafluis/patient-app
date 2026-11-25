@@ -4,10 +4,14 @@
   "version": "0.1.0",
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "infra"
   ],
   "scripts": {
-    "test": "bun test apps/api packages && cd apps/web && bun test",
+    "test": "bun test apps/api packages infra && cd apps/web && bun test",
+    "build": "cd apps/web && bun run build",
+    "synth": "cd infra && bunx cdk synth",
+    "deploy": "bun run build && cd infra && bunx cdk deploy",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test:e2e": "cd apps/web && bunx playwright test"
   },
@@ -16,6 +20,7 @@
     "@types/react": "^19.3.1",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.3.0",
+    "esbuild": "^0.28.2",
     "typescript": "^5.9.0",
     "vite": "^8.3.8"
   }

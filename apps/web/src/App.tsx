@@ -1,7 +1,8 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { AppShell, Group, Skeleton, Text, TextInput, Anchor, Kbd } from "@mantine/core";
-import { Heart, Search } from "lucide-react";
+import { ActionIcon, AppShell, Group, Skeleton, Text, TextInput, Anchor, Kbd } from "@mantine/core";
+import { Heart, LogOut, Search } from "lucide-react";
 import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from "react-router-dom";
+import { getSignOut } from "./lib/auth.tsx";
 import { PatientsPage } from "./features/patients/PatientsPage.tsx";
 
 // Route-level code splitting: the chart (and its tabs) load only when a chart is opened.
@@ -62,7 +63,14 @@ export function App() {
               <Text fw={600}>Patients</Text>
             </Group>
           </Anchor>
-          <HeaderSearch />
+          <Group gap="xs" wrap="nowrap">
+            <HeaderSearch />
+            {getSignOut() && (
+              <ActionIcon variant="subtle" size="lg" aria-label="Sign out" onClick={() => getSignOut()?.()}>
+                <LogOut size={18} aria-hidden />
+              </ActionIcon>
+            )}
+          </Group>
         </Group>
       </AppShell.Header>
       <AppShell.Main>

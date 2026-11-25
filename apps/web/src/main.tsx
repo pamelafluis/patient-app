@@ -9,6 +9,7 @@ import { Notifications } from "@mantine/notifications";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App.tsx";
+import { AuthGate } from "./lib/auth.tsx";
 
 const theme = createTheme({ primaryColor: "teal" });
 
@@ -24,11 +25,13 @@ createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <MantineProvider theme={theme} cssVariablesResolver={resolver} defaultColorScheme="auto">
       <Notifications position="top-right" />
-      <QueryClientProvider client={queryClient}>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </QueryClientProvider>
+      <AuthGate>
+        <QueryClientProvider client={queryClient}>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </QueryClientProvider>
+      </AuthGate>
     </MantineProvider>
   </React.StrictMode>,
 );

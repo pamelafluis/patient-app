@@ -6,15 +6,26 @@ export class ApiError extends Error {
   }
 }
 
+// Set by the login gate; unset in local development, where /api is open.
+let handlers: { getToken: () => string | undefined; onUnauthorized: () => void } = { getToken: () => undefined, onUnauthorized: () => {} };
+export function setAuthHandlers(h: typeof handlers) {
+  handlers = h;
+}
+
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(path, { ...init, headers: { "Content-Type": "application/json" } });
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const token = handlers.getToken();
+    if (token) headers.Authorization = `Bearer ${token}`;
+    res = await fetch(path, { ...init, headers });
   } catch (e) {
     if (e instanceof DOMException && e.name === "AbortError") throw e;
     throw new ApiError("Can't reach the server", 0, null);
   }
   const body = await res.json().catch(() => null);
+  // API Gateway answers 401 itself when the session has expired; sign in again.
+  if (res.status === 401) handlers.onUnauthorized();
   if (!res.ok) throw new ApiError(body?.message ?? `Request failed (${res.status})`, res.status, body);
   return body as T;
 }
