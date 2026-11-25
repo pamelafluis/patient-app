@@ -137,6 +137,8 @@ infra/                 CDK stack     docs/plan.md
 | `GET /api/worklist/bp?cursor=` | See Add-on |
 | `POST /api/worklist/bp/tasks` | `POST Task` with `If-None-Exist` to prevent duplicates |
 
+**Complete results:** patient searches and vital sign queries send `_offset=0`. Without it, HAPI cuts a page before removing duplicates (a patient with several matching names, an observation with two of the searched codes), returns fewer than `_count` and sends no `next` link. Any new search of that shape, including the worklist's condition query, needs it too.
+
 **Paging:** upstream `next` links must match the configured origin and base path, then become HMAC-signed cursors. Unsigned or altered cursors get 400.
 
 **Safe edits:** start from the full current resource and change only name, gender and date of birth, so identifiers, extensions and other names survive. Send the version the user opened; 409/412 becomes the conflict screen. If a server supplies no version, the save proceeds and the UI says conflict protection is unavailable.

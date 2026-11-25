@@ -71,3 +71,11 @@ export async function verifyCursor(cursor: string, baseUrl: string, secret: stri
 export function nextLinkOf(bundle: { link?: { relation?: string; url?: string }[] }): string | undefined {
   return bundle.link?.find((l) => l.relation === "next")?.url;
 }
+
+/**
+ * Add to any search where one resource can match twice (several codes on an
+ * Observation, several names on a Patient). HAPI otherwise cuts the page before
+ * removing duplicates, returns fewer than `_count` and sends no `next` link, so
+ * results are silently lost. Asking for offset paging avoids that.
+ */
+export const OFFSET_PAGING = { _offset: "0" } as const;

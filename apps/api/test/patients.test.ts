@@ -69,6 +69,8 @@ describe("GET /api/patients", () => {
     const url = new URL(calls[0]!.url);
     expect(url.searchParams.get("_elements")).toBe("name,gender,birthDate");
     expect(url.searchParams.getAll("name")).toEqual(["ada", "dan"]);
+    // Without offset paging HAPI drops matches (patients with several names) and sends no next link.
+    expect(url.searchParams.get("_offset")).toBe("0");
     expect(body.items[0]).toMatchObject({ id: "p1", displayName: "Adams, D", age: 100 });
     expect(body.nextCursor).not.toContain("_getpages");
     expect(res.headers.get("cache-control")).toBe("no-store");
