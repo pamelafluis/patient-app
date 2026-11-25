@@ -16,7 +16,7 @@ import {
 import type { ConfigProvider } from "../config.ts";
 import { describeFhirError } from "../errors.ts";
 import { FhirClient, FhirError } from "../fhir/client.ts";
-import { nextLinkOf, signCursor, verifyCursor } from "../fhir/paging.ts";
+import { nextLinkOf, OFFSET_PAGING, signCursor, verifyCursor } from "../fhir/paging.ts";
 import { includedMedications, toCondition, toHistoryItem, toMedication } from "../mappers/clinical.ts";
 import { toDetail } from "../mappers/patient.ts";
 import { readingsOf } from "../mappers/vitals.ts";
@@ -61,7 +61,7 @@ export function chartRoutes({ config, fhir, today }: ChartDeps) {
   }
 
   async function latestVitals(id: string, signal: AbortSignal) {
-    const q = new URLSearchParams({ patient: id, code: codeParam(VITAL_KINDS), _sort: "-date", _count: String(VITALS_PAGE) });
+    const q = new URLSearchParams({ patient: id, code: codeParam(VITAL_KINDS), _sort: "-date", _count: String(VITALS_PAGE), ...OFFSET_PAGING });
     const { body } = await fhir.get<Bundle>(`Observation?${q}`, signal);
     const resources = resourcesOf(body);
     const truncated = !!nextLinkOf(body);
@@ -71,7 +71,7 @@ export function chartRoutes({ config, fhir, today }: ChartDeps) {
         let reading = readingsOf(resources, kind)[0] ?? null;
         // Not in the newest page and there is more: ask for this vital alone before saying "no reading".
         if (!reading && truncated) {
-          const one = new URLSearchParams({ patient: id, code: codeParam([kind]), _sort: "-date", _count: String(FALLBACK_COUNT) });
+          const one = new URLSearchParams({ patient: id, code: codeParam([kind]), _sort: "-date", _count: String(FALLBACK_COUNT), ...OFFSET_PAGING });
           const res = await fhir.get<Bundle>(`Observation?${one}`, signal);
           reading = readingsOf(resourcesOf(res.body), kind)[0] ?? null;
         }
@@ -135,7 +135,7 @@ export function chartRoutes({ config, fhir, today }: ChartDeps) {
     const cursor = c.req.query("cursor");
     const path = cursor
       ? await verifyCursor(cursor, cfg.fhir.baseUrl, cfg.cursorKey)
-      : `Observation?${new URLSearchParams({ patient: c.req.param("id"), code: codeParam([kind]), _sort: "-date", _count: String(VITALS_PAGE) })}`;
+      : `Observation?${new URLSearchParams({ patient: c.req.param("id"), code: codeParam([kind]), _sort: "-date", _count: String(VITALS_PAGE), ...OFFSET_PAGING })}`;
     const { body } = await fhir.get<Bundle>(path, c.req.raw.signal);
     const next = nextLinkOf(body);
     const page: VitalHistory = {

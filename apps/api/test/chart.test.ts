@@ -153,6 +153,8 @@ describe("GET /api/patients/:id/summary", () => {
 
     const obs = calls.find((u) => u.pathname.endsWith("/Observation"))!;
     expect(obs.searchParams.get("_sort")).toBe("-date");
+    // Without offset paging HAPI drops observations that match two codes and sends no next link.
+    expect(obs.searchParams.get("_offset")).toBe("0");
     expect(obs.searchParams.get("code")).toContain("http://loinc.org|85354-9");
     const cond = calls.find((u) => u.pathname.endsWith("/Condition"))!;
     expect(cond.searchParams.get("clinical-status")).toBe("active,recurrence,relapse");
@@ -176,6 +178,7 @@ describe("GET /api/patients/:id/summary", () => {
     expect(body.vitals.data.spo2).toMatchObject({ value: 97, unit: "%", date: "2020-01-01" });
     expect(body.vitals.data.respiration).toBeNull();
     expect(calls.filter((u) => u.pathname.endsWith("/Observation")).length).toBe(1 + 3); // combined + spo2, respiration, temperature
+    expect(calls.filter((u) => u.pathname.endsWith("/Observation")).every((u) => u.searchParams.get("_offset") === "0")).toBe(true);
   });
 
   test("one failing section reports itself while the others still load", async () => {
@@ -226,6 +229,12 @@ describe("GET /api/patients/:id/summary", () => {
 });
 
 describe("GET /api/patients/:id/vitals/:kind", () => {
+  test("the first page of a trend asks for offset paging, so no reading is silently dropped", async () => {
+    const { app, calls } = server();
+    await app.request("/api/patients/p1/vitals/spo2");
+    expect(calls.at(-1)!.searchParams.get("_offset")).toBe("0");
+  });
+
   test("returns one vital's readings newest first, with a signed cursor", async () => {
     const { app, calls } = server({ Observation: bundle([hr("2026-01-01", 60), hr("2026-09-01", 80)], `${BASE}?_getpages=1&_offset=50`) });
     const res = await app.request("/api/patients/p1/vitals/heartRate");

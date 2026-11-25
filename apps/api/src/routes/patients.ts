@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { createPatientInputSchema, type PatientPage } from "@patient-app/shared";
 import type { ConfigProvider } from "../config.ts";
 import { FhirClient, FhirError } from "../fhir/client.ts";
-import { nextLinkOf, signCursor, verifyCursor } from "../fhir/paging.ts";
+import { nextLinkOf, OFFSET_PAGING, signCursor, verifyCursor } from "../fhir/paging.ts";
 import { applyEdit, buildNew, toDetail, toListItem } from "../mappers/patient.ts";
 
 const PAGE_SIZE = 10;
@@ -28,7 +28,7 @@ export function patientRoutes({ config, fhir, today, writeSchema }: PatientDeps)
     if (cursor) {
       path = await verifyCursor(cursor, cfg.fhir.baseUrl, cfg.cursorKey);
     } else {
-      const q = new URLSearchParams({ _elements: FIELDS, _sort: "family", _count: String(PAGE_SIZE) });
+      const q = new URLSearchParams({ _elements: FIELDS, _sort: "family", _count: String(PAGE_SIZE), ...OFFSET_PAGING });
       // One name= per word; the server ANDs them.
       const words = (c.req.query("name") ?? "").trim().split(/\s+/).filter(Boolean).slice(0, 5);
       for (const w of words) q.append("name", w);
